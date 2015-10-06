@@ -1,21 +1,22 @@
 package main
 
 import (
-	"log"
-	"fmt"
-	"net/http"
-	"errors"
-	"sync"
-	"encoding/json"
 	"container/list"
-	"strings"
+	"encoding/json"
+	"errors"
+	"fmt"
 	"github.com/bradfitz/go-smtpd/smtpd"
+	"log"
+	"net/http"
+	"strings"
+	"sync"
+	"flag"
 )
 
 type Message struct {
-	From  string	`json:"from"`
-	To [20]string `json:"to"`
-	Body     string `json:"body"`
+	From string     `json:"from"`
+	To   [20]string `json:"to"`
+	Body string     `json:"body"`
 }
 
 var l = list.New()
@@ -30,7 +31,7 @@ type env struct {
 }
 
 func onNewMail(c smtpd.Connection, from smtpd.MailAddress) (smtpd.Envelope, error) {
-  myMessage.From = from.Email()
+	myMessage.From = from.Email()
 	return &env{new(smtpd.BasicEnvelope), myMessage}, nil
 }
 
@@ -50,7 +51,7 @@ func (e *env) Write(line []byte) error {
 }
 
 func (e *env) Close() error {
-	log.Printf("The message: %q",myMessage)
+	log.Printf("The message: %q", myMessage)
 	localcount = 0
 	mutex.Lock()
 	l.PushBack(e.msg)
@@ -59,52 +60,58 @@ func (e *env) Close() error {
 }
 
 func retrieve_mail(w http.ResponseWriter, req *http.Request) {
-  fmt.Println("******in handler**********")
 	mutex.Lock()
 	first_mail := l.Front()
 	value := l.Remove(first_mail)
 	fmt.Println("Value removed from queue:", value)
 	mutex.Unlock()
 
-	// res1D := &Message{
-  //       From:   value.From,
-  //       To: []string{value.To[0]},
-	// 			Body: value.Body,
-	// 			}
 	res1B, _ := json.Marshal(value)
 	w.Header().Set("Server", "A Go Web Server")
-  w.WriteHeader(200)
+	w.WriteHeader(200)
 	w.Write([]byte(res1B))
 }
 
-func smtp_listen() {
+func SMTPListener(host string, port int) {
+	addr := fmt.Sprintf("%s:%d", host, port)
+
 	s := &smtpd.Server{
-	      Hostname: "172.18.17.20",
-		  	Addr:":2500",
-		 		OnNewMail: onNewMail,
+		Hostname:  host,
+		Addr:     addr,
+		OnNewMail: onNewMail,
 	}
-	err1 := s.ListenAndServe()
-	if err1 != nil {
-		log.Fatalf("ListenAndServe: %v", err1)
+
+	log.Println("[SMTP] Starting SMTP interface on", addr)
+
+	err := s.ListenAndServe()
+
+	if err != nil {
+		log.Fatal("[SMTP] ERROR:", err)
 	}
 }
 
-func http_listen() {
+func HTTPListener(host string, port int) {
+	addr := fmt.Sprintf("%s:%d", host, port)
 	http.HandleFunc("/mails", retrieve_mail)
-	err := http.ListenAndServe(":8080",nil)
+
+	log.Println("[HTTP] Starting HTTP interface on", addr)
+
+	err := http.ListenAndServe(":8080", nil)
+
 	if err != nil {
-			log.Fatal("ListenAndServe:", err)
+		log.Fatal("[HTTP] ERROR:", err)
 	}
 }
+
+var (
+	host = flag.String("b", "0.0.0.0", "listen on HOST")
+	httpPort = flag.Int("p", 8080, "use PORT for HTTP")
+	smtpPort = flag.Int("s", 587, "use PORT for SMTP")
+)
 
 func main() {
+	flag.Parse()
 
-	fmt.Println("******in main**********")
-	go smtp_listen()
-	go http_listen()
-
-	var input string
-    fmt.Scanln(&input)
-    fmt.Println("done")
+	go SMTPListener(*host, *smtpPort)
+	HTTPListener(*host, *httpPort)
 }
-
