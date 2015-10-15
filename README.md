@@ -19,7 +19,7 @@ Usage of ./web-smtp:
     	use PORT for SMTP (default 587)
 ```
 
-Fetching mails using curl 
+Fetching mails using curl
 
 ```
 $ curl http://localhost:8080/mails
@@ -27,6 +27,40 @@ $ curl http://localhost:8080/mails
 {
   "from": "Alice",
   "to": ["Bob"],
+  "body": "mail body ...\r\n"
+}
+{
+  "from": "Alice",
+  "to": ["John"],
+  "body": "mail body ...\r\n"
+}
+
+{
+  "from": "Bob",
+  "to": ["John"],
+  "body": "mail body ...\r\n"
+}
+```
+```
+$ curl http://localhost:8080/pop
+{
+  "from": "Alice",
+  "to": ["Bob"],
+  "body": "mail body ...\r\n"
+}
+
+```
+
+```
+$ curl http://localhost:8080/mails/get?From=Alice
+{
+  "from": "Alice",
+  "to": ["Bob"],
+  "body": "mail body ...\r\n"
+}
+{
+  "from": "Alice",
+  "to": ["John"],
   "body": "mail body ...\r\n"
 }
 ```
